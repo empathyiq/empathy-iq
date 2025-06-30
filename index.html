@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Emotion Detection</title>
+  <style>
+    body   { font-family: sans-serif; text-align: center; padding: 2em; }
+    button { font-size: 1.1em; margin: .4em; padding: .6em 1.2em; }
+    #status, #transcript, #result { margin-top: 1em; font-size: 1.1em; }
+    audio  { margin-top: 1.5em; width: 90%; max-width: 400px; }
+    .detect-row { margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <h1>Emotion Detection from Voice</h1>
+
+  <button id="record">Start Recording</button>
+  <button id="stop"   disabled>Stop</button>
+
+  <div class="detect-row">
+    <button id="detect-text"  disabled>Detect Emotion</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="transcript"></div>
+  <div id="result"></div>
+
+  <audio id="player" controls></audio>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
