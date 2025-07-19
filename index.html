@@ -1,32 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Emotion Detection</title>
+  <meta charset="UTF-8">
+  <title>Audio Emotion Detector</title>
   <style>
-    body   { font-family: sans-serif; text-align: center; padding: 2em; }
-    button { font-size: 1.1em; margin: .4em; padding: .6em 1.2em; }
-    #status, #transcript, #result { margin-top: 1em; font-size: 1.1em; }
-    audio  { margin-top: 1.5em; width: 90%; max-width: 400px; }
-    .detect-row { margin-top: 1em; }
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+    h1 {
+      text-align: center;
+    }
+    input[type="file"],
+    button {
+      display: block;
+      margin: 10px auto;
+      padding: 8px 16px;
+    }
+    #results {
+      margin-top: 20px;
+    }
+    .result-item {
+      margin-bottom: 5px;
+    }
+    audio {
+      display: block;
+      margin: 10px auto;
+    }
   </style>
 </head>
 <body>
-  <h1>Emotion Detection from Voice</h1>
+  <h1>Audio Emotion Detector</h1>
 
-  <button id="record">Start Recording</button>
-  <button id="stop"   disabled>Stop</button>
+  <input type="file" id="fileInput" accept="audio/*">
+  <button onclick="uploadAudio()">Analyze Uploaded File</button>
 
-  <div class="detect-row">
-    <button id="detect-text"  disabled>Detect Emotion</button>
-  </div>
+  <hr>
 
-  <div id="status"></div>
-  <div id="transcript"></div>
-  <div id="result"></div>
+  <button id="recordBtn">🎙️ Start Recording</button>
+  <audio id="audioPlayback" controls style="display:none;"></audio>
+  <button id="sendRecordingBtn" style="display:none;">Analyze Recording</button>
 
-  <audio id="player" controls></audio>
+  <div id="results"></div>
 
-  <script type="module" src="./src/main.js"></script>
+  <script>
+    const recordBtn = document.getElementById('recordBtn');
+    const sendRecordingBtn = document.getElementById('sendRecordingBtn');
+    const audioPlayback = document.getElementById('audioPlayback');
+    const resultsDiv = document.getElementById('results');
+
+    let mediaRecorder;
+    let audioChunks = [];
+
+    recordBtn.onclick = async () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        recordBtn.textContent = '🎙️ Start Recording';
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: 'audio/wav' });
+        audioPlayback.src = URL.createObjectURL(blob);
+        audioPlayback.style.display = 'block';
+        sendRecordingBtn.style.display = 'block';
+        sendRecordingBtn.onclick = () => uploadBlob(blob);
+      };
+
+      mediaRecorder.start();
+      recordBtn.textContent = '⏹️ Stop Recording';
+      resultsDiv.innerHTML = '';
+      audioPlayback.style.display = 'none';
+      sendRecordingBtn.style.display = 'none';
+    };
+
+    async function uploadAudio() {
+      const fileInput = document.getElementById('fileInput');
+      resultsDiv.innerHTML = '';
+
+      if (fileInput.files.length === 0) {
+        alert('Please select an audio file first.');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      await sendToServer(formData);
+    }
+
+    async function uploadBlob(blob) {
+      const formData = new FormData();
+      const file = new File([blob], "recording.wav", { type: "audio/wav" });
+      formData.append('file', file);
+
+      await sendToServer(formData);
+    }
+
+    async function sendToServer(formData) {
+      resultsDiv.innerHTML = 'Analyzing...';
+
+      try {
+        const response = await fetch('http://170.64.143.135:8000/predict', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          resultsDiv.innerHTML = '<h3>Emotion Probabilities</h3>';
+          const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+
+          sorted.forEach(([label, score]) => {
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.textContent = `${label}: ${(score * 100).toFixed(2)}%`;
+            resultsDiv.appendChild(item);
+          });
+        } else {
+          resultsDiv.innerHTML = `Error: ${data.error}`;
+        }
+      } catch (error) {
+        resultsDiv.innerHTML = `Failed to connect: ${error.message}`;
+      }
+    }
+  </script>
 </body>
 </html>
